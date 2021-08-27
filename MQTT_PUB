@@ -13,7 +13,6 @@
 #include "json_inttypes.h"
 #include "json_object.h"
 #include "json_tokener.h"
-
 #define MQTT_SERVER     "localhost"
 #define MQTT_PORT       1883
 #define KEEP_ALIVE      60
@@ -59,6 +58,10 @@ static void submit_callback(GtkWidget *widget, gpointer data){
     mosquitto_lib_cleanup();
     gtk_label_set_text(GTK_LABEL(data),"Sent successfully!");
 }
+
+
+//////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////
 
 static void application( GtkApplication *app, gpointer user_data ){
     GtkWidget *window;
@@ -108,6 +111,9 @@ static void application( GtkApplication *app, gpointer user_data ){
     gtk_box_pack_start( GTK_BOX(box), status, TRUE , TRUE , 0 );
     gtk_widget_show_all( window );
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////
 
 int main(int argc, char const *argv[])
 {
