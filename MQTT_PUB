@@ -1,0 +1,120 @@
+// $ gcc -Wall -g gui_test.c -o gui_test `pkg-config --cflags gtk+-3.0` `pkg-config --libs gtk+-3.0` -I/usr/include/json-c -ljson-c -lmosquitto -lpthread
+// ./test08
+
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <mosquitto.h>
+#include <time.h>
+#include <inttypes.h>
+#include <gtk/gtk.h>
+#include "json.h"
+#include "json_inttypes.h"
+#include "json_object.h"
+#include "json_tokener.h"
+
+#define MQTT_SERVER     "localhost"
+#define MQTT_PORT       1883
+#define KEEP_ALIVE      60
+#define MQTT_PUB_TOPIC  "/0044test"
+#define MSG_MAX_SIZE    512
+
+GtkWidget *Key1_Label,*Key1_Entry,*Key2_Label,*Key2_Entry,*Value1_Label,*Value1_Entry,*Value2_Label,*Value2_Entry;
+
+static void submit_callback(GtkWidget *widget, gpointer data){
+    bool clean_session = true;
+    char buf[ MSG_MAX_SIZE ];
+    struct mosquitto *mosq = NULL;
+    mosquitto_lib_init();
+    mosq = mosquitto_new( NULL, clean_session, NULL );
+    gtk_label_set_text(GTK_LABEL(data),"");
+    if( !mosq ) {
+        gtk_label_set_text(GTK_LABEL(data),"Create client failed..");
+        mosquitto_lib_cleanup( );
+        return 1;
+    }
+    if (mosquitto_connect(mosq, MQTT_SERVER, MQTT_PORT, KEEP_ALIVE)) {
+        gtk_label_set_text(GTK_LABEL(data),"Unable to connect.");
+        return 1;
+    }
+    const gchar *Key1 = gtk_entry_get_text(GTK_ENTRY(Key1_Entry));
+    const gchar *Value1 = gtk_entry_get_text(GTK_ENTRY(Value1_Entry));
+    const gchar *Key2 = gtk_entry_get_text(GTK_ENTRY(Key2_Entry));
+    const gchar *Value2 = gtk_entry_get_text(GTK_ENTRY(Value2_Entry));
+    json_object *json_obj;
+    json_obj = json_tokener_parse( "{}" );
+    const char *json_str;
+    json_object_object_add( json_obj, Key1, json_object_new_string(Value1));
+    json_object_object_add( json_obj, Key2, json_object_new_string(Value2));
+    json_str = json_object_get_string( json_obj );
+    int result;
+    result = mosquitto_publish( mosq, NULL, MQTT_PUB_TOPIC,  strlen(json_str), json_str, 0, 0 );
+    if (result != 0) {
+        gtk_label_set_text(GTK_LABEL(data),"MQTT publish error");
+    }
+    if (mosq) {
+       mosquitto_destroy( mosq );
+    }
+    mosquitto_lib_cleanup();
+    gtk_label_set_text(GTK_LABEL(data),"Sent successfully!");
+}
+
+static void application( GtkApplication *app, gpointer user_data ){
+    GtkWidget *window;
+    GtkWidget *box;
+    GtkWidget *status;
+    GtkWidget *submit, *exit_button;
+
+    window = gtk_application_window_new( app );
+    gtk_window_set_title( GTK_WINDOW(window), "MQTT APPLICATION" );
+    gtk_window_set_default_size( GTK_WINDOW(window), 250, 150 );
+    gtk_window_set_position( GTK_WINDOW(window), GTK_WIN_POS_CENTER );
+    gtk_container_set_border_width( GTK_CONTAINER(window), 4 );
+    box = gtk_box_new( GTK_ORIENTATION_VERTICAL, 0 ) ;
+	gtk_container_add( GTK_CONTAINER(window), box );
+
+    Key1_Label = gtk_label_new("Key 1:");
+    Key1_Entry = gtk_entry_new();
+
+    Key2_Label = gtk_label_new("Key 2:");
+    Key2_Entry = gtk_entry_new(); 
+
+    Value1_Label = gtk_label_new("Value 1:");
+    Value1_Entry = gtk_entry_new();
+
+    Value2_Label = gtk_label_new("Value 2:");
+    Value2_Entry = gtk_entry_new();
+  
+    status = gtk_label_new("");
+
+    submit = gtk_button_new_with_label( "Submit" );
+	g_signal_connect( submit, "clicked", G_CALLBACK(submit_callback), status );
+
+    exit_button = gtk_button_new_with_label( "Exit" );
+	g_signal_connect( exit_button, "clicked", G_CALLBACK(exit_callback), NULL );
+	g_signal_connect_swapped( exit_button, "clicked", G_CALLBACK( gtk_widget_destroy), window );
+
+    gtk_box_pack_start( GTK_BOX(box), Key1_Label, TRUE , TRUE , 0 );
+    gtk_box_pack_start( GTK_BOX(box), Key1_Entry, TRUE , TRUE , 0 );
+    gtk_box_pack_start( GTK_BOX(box), Value1_Label, TRUE , TRUE , 0 );
+    gtk_box_pack_start( GTK_BOX(box), Value1_Entry, TRUE , TRUE , 0 );
+    gtk_box_pack_start( GTK_BOX(box), Key2_Label, TRUE , TRUE , 0 );
+    gtk_box_pack_start( GTK_BOX(box), Key2_Entry, TRUE , TRUE , 0 );
+    gtk_box_pack_start( GTK_BOX(box), Value2_Label, TRUE , TRUE , 0 );
+    gtk_box_pack_start( GTK_BOX(box), Value2_Entry, TRUE , TRUE , 0 );
+    gtk_box_pack_start( GTK_BOX(box), submit, FALSE , FALSE , 4 );
+    gtk_box_pack_start( GTK_BOX(box), exit_button, FALSE , FALSE , 4 );
+    gtk_box_pack_start( GTK_BOX(box), status, TRUE , TRUE , 0 );
+    gtk_widget_show_all( window );
+}
+
+int main(int argc, char const *argv[])
+{
+    GtkApplication *app;
+	app = gtk_application_new( NULL, G_APPLICATION_FLAGS_NONE );
+    g_signal_connect( app, "activate", G_CALLBACK(application), NULL );
+	g_application_run( G_APPLICATION(app), argc, argv );
+	g_object_unref( app );
+    return 0;
+}
